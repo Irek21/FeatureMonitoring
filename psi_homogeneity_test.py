@@ -23,10 +23,7 @@ def sec_min(x):
     return min2
 
 
-def psi_cont_2samp(x1: np.ndarray,
-                   x2: np.ndarray,
-                   nan_value: float = -1.0,
-                   buckets: int = 20):
+def psi_cont_2samp(x1: np.ndarray, x2: np.ndarray, nan_value: float = -1.0, buckets: int = 20):
     """
     This function counts population stability index (PSI)
     between two samples of continuous variables.
@@ -73,8 +70,7 @@ def psi_cont_2samp(x1: np.ndarray,
     return psi_value
 
 
-def psi_discr_2samp(x1: np.ndarray,
-                    x2: np.ndarray):
+def psi_discr_2samp(x1: np.ndarray, x2: np.ndarray):
     """
     This function counts psi_value between two samples of discrete variables.
 

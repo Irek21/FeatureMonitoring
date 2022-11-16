@@ -13,15 +13,12 @@ class Chi2Result:
         pvalue (float): pvalue corresponding to this statistic.
     """
 
-    def __init__(self,
-                 statistic: float,
-                 pvalue: float):
+    def __init__(self, statistic: float, pvalue: float):
         self.statistic = statistic
         self.pvalue = pvalue
 
 
-def chi2_discr_2samp(x1: np.ndarray,
-                     x2: np.ndarray):
+def chi2_discr_2samp(x1: np.ndarray, x2: np.ndarray):
     """
     This function runs chi-square test checking homogeneity of two samples
     of discrete variables.

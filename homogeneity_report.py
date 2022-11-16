@@ -7,21 +7,14 @@ import os
 import ntpath
 import inspect
 
-from .homogeneity_tests import (
-    ContinuousHomogeneityTests,
-    DiscreteHomogeneityTests,
-    fillna_cont,
-    fillna_discr
-)
+from .homogeneity_tests import ContinuousHomogeneityTests, DiscreteHomogeneityTests, fillna_cont, fillna_discr
 
 import jinja2
 
 
-def chart_cont(x1: np.ndarray, x2: np.ndarray,
-               name1: str, name2: str,
-               limits: iter,
-               bins: int = 15,
-               offline: bool = True):
+def chart_cont(
+    x1: np.ndarray, x2: np.ndarray, name1: str, name2: str, limits: iter, bins: int = 15, offline: bool = True
+):
     """
     This function draws histograms of given samples using joint grid.
     It needs limits of interested area and number of bins.
@@ -60,23 +53,25 @@ def chart_cont(x1: np.ndarray, x2: np.ndarray,
 
     # draw hists
     hist_data = [x1_group, x2_group]
-    fig = create_distplot(hist_data, group_labels, bin_size=bin_size,
-                          histnorm='probability',
-                          show_curve=False, show_rug=False)
+    fig = create_distplot(
+        hist_data, group_labels, bin_size=bin_size, histnorm='probability', show_curve=False, show_rug=False
+    )
 
     # add details
-    fig.update_layout(autosize=False, width=830, height=650, xaxis_range=None,
-                      legend=dict(x=0.8, y=0.95, traceorder='normal',
-                                  font=dict(color='black', size=16)))
+    fig.update_layout(
+        autosize=False,
+        width=830,
+        height=650,
+        xaxis_range=None,
+        legend=dict(x=0.8, y=0.95, traceorder='normal', font=dict(color='black', size=16)),
+    )
     if offline:
         return py.offline.plot(fig, include_plotlyjs=False, output_type='div')
     else:
         return fig
 
 
-def chart_discr(x1: np.ndarray, x2: np.ndarray,
-                name1: str, name2: str,
-                offline: bool = True):
+def chart_discr(x1: np.ndarray, x2: np.ndarray, name1: str, name2: str, offline: bool = True):
     """
     This function draws histograms of given samples using joint grid.
     It needs limits of interested area and number of bins.
@@ -94,18 +89,19 @@ def chart_discr(x1: np.ndarray, x2: np.ndarray,
     """
 
     # draw discrete hists
-    fig1 = px.histogram(x1, histnorm='probability',
-                        barmode='overlay', color_discrete_sequence=['green'])
+    fig1 = px.histogram(x1, histnorm='probability', barmode='overlay', color_discrete_sequence=['green'])
     fig1.for_each_trace(lambda t: t.update(name=name1))
-    fig2 = px.histogram(x2, histnorm='probability',
-                        barmode='overlay', color_discrete_sequence=['red'])
+    fig2 = px.histogram(x2, histnorm='probability', barmode='overlay', color_discrete_sequence=['red'])
     fig2.for_each_trace(lambda t: t.update(name=name2))
     fig = py.graph_objects.Figure(data=fig1.data + fig2.data)
 
     # add details
-    fig.update_layout(autosize=False, width=830, height=650,
-                      legend=dict(x=0.8, y=0.95, traceorder='normal',
-                                  font=dict(color='black', size=16)))
+    fig.update_layout(
+        autosize=False,
+        width=830,
+        height=650,
+        legend=dict(x=0.8, y=0.95, traceorder='normal', font=dict(color='black', size=16)),
+    )
 
     if offline:
         return py.offline.plot(fig, include_plotlyjs=False, output_type='div')
@@ -142,8 +138,7 @@ class HomogeneityReport:
         config_dict (dict): dict. with feature properties (see description).
     """
 
-    def __init__(self,
-                 config_dict: dict = {}):
+    def __init__(self, config_dict: dict = {}):
         """
         Raises:
             KeyError: If it is not specified whether certain feature is continuous or discrete.
@@ -154,16 +149,21 @@ class HomogeneityReport:
             properties = config_dict[feat]
             if 'feature_type' not in properties:
                 raise KeyError(f"Type of {feat} feature is not found in 'config_dict'.")
-            elif not properties['feature_type'] in ['continuous', 'discrete']:
+            elif properties['feature_type'] not in ['continuous', 'discrete']:
                 raise ValueError(f"Types of features must be 'continuous' or 'discrete'. Invalid type for {feat}.")
         self.config_dict = config_dict
         self.features = config_dict.keys()
 
-    def build_report(self, df1, df2,
-                     name1: str = 'Base subset',
-                     name2: str = 'Current subset',
-                     render: bool = False,
-                     report_path: str = None):
+    def build_report(
+        self,
+        df1,
+        df2,
+        dropna: bool = False,
+        name1: str = 'Base subset',
+        name2: str = 'Current subset',
+        render: bool = False,
+        report_path: str = None,
+    ):
         """
         Main function which assembles all testing logic - it takes raw dataframes
         and runs homogeneity tests for each feature. So feature sets must be same.
@@ -172,6 +172,7 @@ class HomogeneityReport:
         Parameters:
             df1 (pd.DataFrame): set of feature samples from base period.
             df2 (pd.DataFrame): set of feature samples from current period.
+            dropna (bool): whether to do drop missing values or not while building report.
             name1 (str): name to describe base period.
             name2 (str): name to describe current period.
             render (bool): whether to render report or not.
@@ -179,8 +180,9 @@ class HomogeneityReport:
 
         Returns:
             report_data (list): list of sub-lists. Each sublist contains 2 elements.
-            1) string describing comparsion
+            1) string describing comparison
             2) results of each test with conclusion
+            3) nan ratio - relation between number of nans in subset1 and subset2
 
         Raises:
             TypeError: if df1 is not pd.DataFrame.
@@ -227,43 +229,46 @@ class HomogeneityReport:
             feat_type = properties['feature_type']
 
             # check optional stat. parameters
-            pval_thresh = 0.05 if not 'pval_thresh' in properties else properties['pval_thresh']
-            samp_size = 500 if not 'samp_size' in properties else properties['samp_size']
-            bootstrap_num = 100 if not 'bootstrap_num' in properties else properties['bootstrap_num']
+            pval_thresh = 0.05 if ('pval_thresh' not in properties) else properties['pval_thresh']
+            samp_size = 500 if ('samp_size' not in properties) else properties['samp_size']
+            bootstrap_num = 100 if ('bootstrap_num' not in properties) else properties['bootstrap_num']
+
+            # count nan difference between x1, x2
+            nan_perc1 = df1[feat].isna().sum() / len(df1[feat])
+            nan_perc2 = df2[feat].isna().sum() / len(df2[feat])
+            nan_perc_gap = nan_perc2 - nan_perc1
+            nan_gap_dict = {'nan_perc1': nan_perc1, 'nan_perc2': nan_perc2, 'nan_perc_gap': nan_perc_gap}
 
             # copy data to avoid side effects
-            x1 = df1[feat].values.copy()
-            x2 = df2[feat].values.copy()
+            if dropna:
+                x1 = df1[feat].dropna().values
+                x2 = df2[feat].dropna().values
+            else:
+                x1 = df1[feat].values.copy()
+                x2 = df2[feat].values.copy()
 
             if feat_type == 'continuous':
-
                 # optional psi_bins
-                psi_bins = 20 if not 'psi_bins' in properties else properties['psi_bins']
+                psi_bins = 20 if ('psi_bins' not in properties) else properties['psi_bins']
 
                 # if we need to render report we build charts
                 if render:
-                    chart_bins = 15 if not 'chart_bins' in properties else properties['chart_bins']
+                    x1, x2, _ = fillna_cont(x1, x2, inplace=True)
+                    chart_bins = 15 if ('chart_bins' not in properties) else properties['chart_bins']
                     if not ('chart_limits' in properties):
                         chart_limits = min(x1.min(), x2.min()), max(x2.max(), x2.max())
                     else:
                         chart_limits = properties['chart_limits']
 
-                    x1, x2, _ = fillna_cont(x1, x2, inplace=True)
-                    chart = chart_cont(x1, x2, name1, name2, chart_limits, chart_bins,
-                                       offline=True)
+                    chart = chart_cont(x1, x2, name1, name2, chart_limits, chart_bins, offline=True)
 
                 # run tests
-                homogen_tester = ContinuousHomogeneityTests(pval_thresh,
-                                                            samp_size,
-                                                            bootstrap_num,
-                                                            psi_bins)
+                homogen_tester = ContinuousHomogeneityTests(pval_thresh, samp_size, bootstrap_num, psi_bins)
                 test_results = homogen_tester.run_all(x1, x2, inplace=True)
 
             elif feat_type == 'discrete':
-
                 # if we need to render report we build charts
                 if render:
-
                     # ambiguous parameters for discrete feature
                     if 'psi_bins' in properties:
                         raise Warning(f"Ignoring 'psi_bins' argument for {feat} discrete feature.")
@@ -273,13 +278,10 @@ class HomogeneityReport:
                         raise Warning(f"Ignoring 'chart_limits' argument for {feat} discrete feature.")
 
                     x1, x2, _ = fillna_discr(x1, x2, inplace=True)
-                    chart = chart_discr(x1, x2, name1, name2,
-                                        offline=True)
+                    chart = chart_discr(x1, x2, name1, name2, offline=True)
 
                 # run tests
-                homogen_tester = DiscreteHomogeneityTests(pval_thresh,
-                                                          samp_size,
-                                                          bootstrap_num)
+                homogen_tester = DiscreteHomogeneityTests(pval_thresh, samp_size, bootstrap_num)
                 test_results = homogen_tester.run_all(x1, x2)
 
             # reduce stat. results to format
@@ -290,9 +292,9 @@ class HomogeneityReport:
 
             # assemble data with charts or without
             if render:
-                feat_report = [f"{feat}: {name1} VS {name2}", chart, test_results]
+                feat_report = [f"{feat}: {name1} VS {name2}", chart, test_results, nan_gap_dict]
             else:
-                feat_report = [f"{feat}: {name1} VS {name2}", test_results]
+                feat_report = [f"{feat}: {name1} VS {name2}", test_results, nan_gap_dict]
             report_data.append(feat_report)
 
         # render report
