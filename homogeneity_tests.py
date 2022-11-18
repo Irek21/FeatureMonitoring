@@ -84,6 +84,8 @@ def fillna_discr(x1_ref: np.ndarray, x2_ref: np.ndarray, inplace: bool = False):
         return x1, x2, nan_value
 
     # if we have string data we fill nan with 'nan' str
+    x1[pd.isna(x1)] = np.nan
+    x2[pd.isna(x2)] = np.nan
     x1 = x1.astype(str)
     x2 = x2.astype(str)
     return x1, x2, 'nan'
@@ -116,16 +118,16 @@ def fillna_cont(x1_ref: np.ndarray, x2_ref: np.ndarray, inplace: bool = False):
     # we fill nans with value less than all data
     # but it is smaller than minimum on gap between minimum and second minimum
     # it helps to avoid a lot of empty buckets in grids when running stat. tests
-    min_ = min(min(x1[~np.isnan(x1)]), min(x2[~np.isnan(x2)]))
+    min_ = min(min(x1[~pd.isna(x1)]), min(x2[~pd.isna(x2)]))
 
-    sec_min1 = sec_min(x1[~np.isnan(x1)])
-    sec_min2 = sec_min(x2[~np.isnan(x2)])
+    sec_min1 = sec_min(x1[~pd.isna(x1)])
+    sec_min2 = sec_min(x2[~pd.isna(x2)])
 
     sec_min_ = min(sec_min1, sec_min2)
 
     gap = sec_min_ - min_
-    x1[np.isnan(x1)] = min_ - gap
-    x2[np.isnan(x2)] = min_ - gap
+    x1[pd.isna(x1)] = min_ - gap
+    x2[pd.isna(x2)] = min_ - gap
 
     return x1, x2, min_ - gap
 
