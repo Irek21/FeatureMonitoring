@@ -187,7 +187,10 @@ class HomogeneityReport:
         Raises:
             TypeError: if df1 is not pd.DataFrame.
             TypeError: if df2 is not pd.DataFrame.
-            ValueError: if sets of features in df1 and df2 are not completely same.
+            KeyError: if some feature are not found in df1.
+            KeyError: if some feature are not found in df2.
+            TypeError: if some feature don't have same dtype in df1 and df2.
+            TypeError: if some feature has unsupported dtype in df1 or df2 (must be int, float or object).
 
             Warning: if 'psi_bins' is specified for discrete feature.
             Warning: if 'chart_bins' is specified for discrete feature.
@@ -223,6 +226,13 @@ class HomogeneityReport:
             nan_perc2 = df2[feat].isna().sum() / len(df2[feat])
             nan_perc_gap = nan_perc2 - nan_perc1
             nan_gap_dict = {'nan_perc1': nan_perc1, 'nan_perc2': nan_perc2, 'nan_perc_gap': nan_perc_gap}
+
+            # check data type errors
+            if df1[feat].dtype != df2[feat].dtype:
+                raise TypeError("All features must be of same data type.")
+
+            if df1[feat].dtype not in [int, float, object]:
+                raise TypeError("Only int, float or object datatypes are supported as for features.")
 
             # copy data to avoid side effects
             if dropna:
@@ -271,10 +281,15 @@ class HomogeneityReport:
                     if 'chart_limits' in properties:
                         raise Warning(f"Ignoring 'chart_limits' argument for {feat} discrete feature.")
 
-                    x1 = x1.astype(object)
-                    x2 = x2.astype(object)
-                    x1[x1 == nan_value] = 'nan'
-                    x2[x2 == nan_value] = 'nan'
+                    if x1.dtype == object:
+                        x1, x2 = x1.astype(str), x2.astype(str)
+                    else:
+                        idx1 = (x1 == nan_value)
+                        idx2 = (x2 == nan_value)
+                        x1 = x1.astype(str)
+                        x2 = x2.astype(str)
+                        x1[idx1] = 'nan'
+                        x2[idx2] = 'nan'
                     chart = chart_discr(x1, x2, name1, name2, offline=True)
 
             # reduce stat. results to format
